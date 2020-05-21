@@ -191,13 +191,21 @@ class Board:
         # TODO: Check that the move would not destroy the last of turn's color
         broken_rings = []
         for ring_center in player.get_rings():
-            ring_center = self._convert_position_to_indices(ring_center)
             ring = self._get_piece_from_center(ring_center)
 
-            # if old piece or new piece overlap with the ring, the ring may be broken
-            # if old piece and new piece overlap
-                # Check if
+            for ring_square in ring:
+                if ring_square in old_piece and ring_square in new_piece:
+                    # Ring may not be broken if the move maintains the ring
+                    # TODO: Test if the ring is broken
+                    pass
+                elif ring_square in old_piece or ring_square in new_piece:
+                    # TODO: This may not be the case for new_piece
+                    # Ring is broken
+                    broken_rings.append(ring_center)
 
+        # All of players rings will be broken; sorted to ensure proper comparison
+        if sorted(broken_rings) == sorted(player.get_rings()):
+            return False
 
         return True
 
@@ -288,9 +296,9 @@ class Player:
 
         # Sets the initial rings for each player
         if color == "b":
-            self._rings.append('l3')
+            self._rings.append((2, 11))
         elif color == "w":
-            self._rings.append('l18')
+            self._rings.append((17, 11))
 
     def get_color(self):
         """ Returns the player's color as a char. """
