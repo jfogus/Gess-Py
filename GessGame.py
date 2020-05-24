@@ -1,6 +1,10 @@
 # Author:  Joshua Fogus
-# Date:  4/30/20
+# Date:  5/22/20
 # Description:  Creates an implementation of the Gess Game
+
+
+class IllegalMove(Exception):
+    pass
 
 
 class GessGame:
@@ -9,53 +13,86 @@ class GessGame:
         self._board = Board()
         self._game_state = 'UNFINISHED'
         self._players = (Player('b'), Player('w'))
-        self._turn = self._players[0]
+        self._turn = 0
 
     def get_game_state(self):
         """ Returns the state of the game. """
         return self._game_state
 
+    def get_active_player(self):
+        return self._players[self._turn]
+
     def resign_game(self):
         """ Allows the current player to quit the game with a loss. """
         # Removes all rings from the current player
-        self._turn.resign()
+        self.get_active_player().resign()
         self.check_win_condition()
 
     def make_move(self, old_center, new_center):
         """ Moves a piece defined by it's center to a new square defined by it's center. """
         if self._game_state != 'UNFINISHED':
             return False
-        if not self._board.is_legal_move(self._turn, old_center, new_center):
+
+        # Get the active player
+        active_player = self._players[self._turn]
+
+        # Make the move if legal; does not check if destroyed last ring
+        try:
+            move = self._board.move_piece(active_player, old_center, new_center)
+        except IllegalMove:
+            # The move was illegal for one of various reasons
             return False
 
-        self._board.move_piece(old_center, new_center)
+        # Ensure active player still has a ring, otherwise undo the move
+        self.update_rings()
+        if not active_player.has_rings():
+            self._board.reverse_move(move)
+            self.update_rings()
+
         self.check_win_condition()
         self.switch_turn()
-        # TODO: check old rings
-        # TODO: check for new rings
-        # TODO: update state as necessary
+
         self._board.print_board()
 
         return True
 
+    def update_rings(self):
+        rings = self._board.check_for_rings()
+
+        black_rings = []
+        white_rings = []
+
+        for pos, color in rings.items():
+            if color == 'b':
+                black_rings.append(pos)
+            elif color == 'w':
+                white_rings.append(pos)
+
+        for player in self._players:
+            if player.get_color() == 'b':
+                player.set_rings(black_rings)
+            elif player.get_color() == 'w':
+                player.set_rings(white_rings)
+
     def switch_turn(self):
         """ Switches the players turn. """
-        if self._turn == self._players[0]:
-            self._turn = self._players[1]
-        else:
-            self._turn = self._players[0]
+        self._turn ^= 1
 
     def check_win_condition(self):
         """ Checks if a player is without rings and updates the status of the game. """
-        if not self._players[0].has_rings():
-            self._game_state = 'WHITE_WON'
-        elif not self._players[1].has_rings():
-            self._game_state = 'BLACK_WON'
+        for i, player in enumerate(self._players):
+            # The player has no rings
+            if not player.has_rings():
+                # Get the color of the opposite player and create the state message
+                state = self._players[i ^ 1].get_long_form_color() + "_WON"
+                self._game_state = state
 
 
 class Board:
     """ Represents a Gess game board. """
+
     def __init__(self):
+        # 20x20 matrix which includes gutters for 18x18 playable space
         self._spaces = [['' for _ in range(20)] for _ in range(20)]
 
         # There are 3 initial layouts for rows
@@ -75,17 +112,49 @@ class Board:
             for col_num in row_type:
                 self._spaces[row_num][col_num] = 'w'
 
-    def move_piece(self, old_center, new_center):
-        """ Moves the piece and updates the board. """
-        # Convert human readable position into list indices
+    def get_board_spaces(self):
+        return self._spaces
+
+    def move_piece(self, player, old_center, new_center):
+        """ Moves the piece and updates the board if the move is legal. """
+        # Convert human readable position into a list of indices
         old_center = self._convert_position_to_indices(old_center)
         new_center = self._convert_position_to_indices(new_center)
+
+        # An old center in the gutter results in an illegal move
+        last_row = len(self._spaces)
+        if old_center[0] in (0, last_row) or old_center[1] in (0, last_row):
+            raise IllegalMove
+
+        # A new center in the gutter results in an illegal move
+        if new_center[0] in (0, last_row) or old_center[1] in (0, last_row):
+            raise IllegalMove
 
         # Get spaces moved in the form [rows, columns]
         move = [new_center[0] - old_center[0], new_center[1] - old_center[1]]
 
-        # Get pieces from indices of center square
+        # Get pieces from indices of center square; sorted to ensure consistency
         old_piece = self._get_piece_from_center(old_center)
+        new_piece = self._get_piece_from_center(new_center)
+
+        # Check if move is legal in various ways
+        if not self.is_legal_move(player, old_piece, new_piece):
+            raise IllegalMove
+
+        # Get the old piece and new piece each in the form {(row, col): stone} for returning
+        old_squares = {}
+        new_squares = {}
+
+        # Get stones of the pieces
+        old_stones = [self._spaces[row][col] for row, col in old_piece]
+        new_stones = [self._spaces[row][col] for row, col in new_piece]
+
+        # Populate old_squares and new_squares
+        for i, space in enumerate(old_piece):
+            old_squares[space[0]][space[1]] = old_stones[i]
+
+        for i, space in enumerate(new_piece):
+            new_squares[space[0]][space[1]] = new_stones[i]
 
         # Remove captured stones and move the piece
         old_piece = self._remove_piece(old_piece)
@@ -94,8 +163,17 @@ class Board:
         # Remove gutter stones
         self._clear_gutter()
 
+        # Returns the old piece
+        return old_squares, new_squares
+
+    def reverse_move(self, moves):
+        """ Replaces the stones from a move that had been made. """
+        for move in moves:
+            for pos, stone in move.items():
+                self._spaces[pos[0]][pos[1]] = stone
+
     def _remove_piece(self, squares):
-        """ Removes a piece from the board. """
+        """ Removes a piece from the board and returns it. """
         piece = {}
 
         for square in squares:
@@ -124,6 +202,24 @@ class Board:
             self._spaces[length][i] = ""
             self._spaces[i][length] = ""
 
+    def check_for_rings(self):
+        rings = {}
+        # Returns rings in the form {(center_row, center_col): color}
+        for row_num in range(1, 20):
+            for col_num in range(1, 20):
+                stone = self._spaces[row_num][col_num]
+                if stone != "":
+                    row_1 = self._spaces[row_num][col_num:col_num + 3]
+                    row_2 = self._spaces[row_num + 1][col_num:col_num + 3]
+                    row_3 = self._spaces[row_num + 2][col_num:col_num + 3]
+
+                    if row_1 == [stone, stone, stone] and \
+                            row_2 == [stone, "", stone] and \
+                            row_3 == [stone, stone, stone]:
+                        rings[row_num + 1, col_num + 1] = stone
+
+        return rings
+
     def print_board(self):
         """ Prints the board. """
         # Reverse order for user understanding
@@ -149,15 +245,9 @@ class Board:
 
         print("\n")
 
-    def is_legal_move(self, player, old_center, new_center):
+    def is_legal_move(self, player, old_piece, new_piece):
         """ Returns true if the move from the old center to the new center is a legal move. """
-        # Get pieces
-        old_center = self._convert_position_to_indices(old_center)
-        new_center = self._convert_position_to_indices(new_center)
-        old_piece = self._get_piece_from_center(old_center)
-        new_piece = self._get_piece_from_center(new_center)
-
-        # Check if the piece only contains a single color
+        # Check if the piece only contains a single color or if no stones
         piece_color = self.get_single_color_piece(old_piece)
         if piece_color is None:
             return False
@@ -167,15 +257,21 @@ class Board:
         if piece_color != color:
             return False
 
+        # In the flag matrix of the piece, 4 is the index of the center
+        old_center = old_piece[4]
+        new_center = new_piece[4]
+
         # Check if the move is in a legal direction
         direction = self._get_valid_move(old_center, new_center)
+
         if direction is None:
             return False
 
         # Check if the piece can move in the desired direction
         direction_stone = old_center[0] + direction[0], old_center[1] + direction[1]
         center_stone = self._spaces[old_center[0]][old_center[1]]
-        if not (center_stone == color or self._spaces[direction_stone[0]][direction_stone[1]] == color):
+
+        if not self._spaces[direction_stone[0]][direction_stone[1]] == color:
             return False
 
         # Check if the piece can move the desired distance
@@ -188,24 +284,19 @@ class Board:
         if not (center_stone == color or abs(distance) <= 3):
             return False
 
-        # TODO: Check that the move would not destroy the last of turn's color
-        broken_rings = []
-        for ring_center in player.get_rings():
-            ring = self._get_piece_from_center(ring_center)
+        # Simulate the movement of the piece, one square at a time to check premature overlap
+        for delta in range(distance):
+            # Checks moved squares up to but not including the final movement
+            movement = delta * direction[0], delta * direction[1]
 
-            for ring_square in ring:
-                if ring_square in old_piece and ring_square in new_piece:
-                    # Ring may not be broken if the move maintains the ring
-                    # TODO: Test if the ring is broken
-                    pass
-                elif ring_square in old_piece or ring_square in new_piece:
-                    # TODO: This may not be the case for new_piece
-                    # Ring is broken
-                    broken_rings.append(ring_center)
+            for square in old_piece:
+                # Look at each square of movement to see if there is premature overlap
+                delta_square = square[0] + movement[0], square[1] + movement[1]
+                stone = self._spaces[delta_square[0]][delta_square[1]]
 
-        # All of players rings will be broken; sorted to ensure proper comparison
-        if sorted(broken_rings) == sorted(player.get_rings()):
-            return False
+                # Make sure there is not another stone in the path of the move
+                if delta_square not in old_piece and stone != color and stone != "":
+                    return False
 
         return True
 
@@ -228,27 +319,27 @@ class Board:
 
         elif vertical_move > 0 and horizontal_move == 0:
             # Northward move
-            offset = -1, 0
+            offset = 1, 0
 
         elif vertical_move < 0 and horizontal_move == 0:
             # Southward move
-            offset = 1, 0
+            offset = -1, 0
 
         elif vertical_move > 0 and vertical_move == horizontal_move:
             # Northeasterly move
-            offset = -1, 1
+            offset = 1, 1
 
         elif vertical_move < 0 and vertical_move == horizontal_move:
             # Southwesterly move
-            offset = 1, -1
-
-        elif vertical_move > 0 and sum(vertical_move, horizontal_move) == 0:
-            # Northwesterly move
             offset = -1, -1
 
-        elif vertical_move < 0 and sum(vertical_move, horizontal_move) == 0:
+        elif vertical_move > 0 and (vertical_move + horizontal_move) == 0:
+            # Northwesterly move
+            offset = 1, -1
+
+        elif vertical_move < 0 and (vertical_move + horizontal_move) == 0:
             # Southeasterly move
-            offset = 1, 1
+            offset = -1, 1
 
         return offset
 
@@ -282,27 +373,35 @@ class Board:
     @staticmethod
     def _get_piece_from_center(center):
         """ Gets the set of 9 squares corresponding to the center square as a list of tuples. """
-        nw_corner = center[0] - 1, center[1] - 1
+        sw_corner = center[0] - 1, center[1] - 1
 
         # row + (0 to 3), col + (0 to 3)
-        return [(nw_corner[0] + i, nw_corner[1] + j) for j in range(3) for i in range(3)]
+        return sorted([(sw_corner[0] + i, sw_corner[1] + j) for j in range(3) for i in range(3)])
 
 
 class Player:
     """ Represents a player of the Gess game. """
+
     def __init__(self, color):
         self._color = color
         self._rings = []
+        self._long_form_color = ""
 
-        # Sets the initial rings for each player
+        # Sets the initial rings and long form color for each player
         if color == "b":
             self._rings.append((2, 11))
+            self._long_form_color = "BLACK"
         elif color == "w":
             self._rings.append((17, 11))
+            self._long_form_color = "WHITE"
 
     def get_color(self):
         """ Returns the player's color as a char. """
         return self._color
+
+    def get_long_form_color(self):
+        """ Gets a long text form of the player's color. """
+        return self._long_form_color
 
     def get_rings(self):
         """ Returns the locations of the centers of players rings. """
@@ -315,16 +414,9 @@ class Player:
 
         return False
 
-    def add_ring(self, location):
-        """ Adds a location for the center of a ring. """
-        self._rings.append(location)
-
-    def remove_ring(self, location):
-        """ Removes a ring that had a center at the location. """
-        # Removes the specified ring
-        for index, ring_center in enumerate(self._rings):
-            if ring_center == location:
-                del self._rings[index]
+    def set_rings(self, rings):
+        """ Replaces the previous list of rings with a new list of rings. """
+        self._rings = rings
 
     def resign(self):
         """ Removes all of the players rings. """
@@ -334,14 +426,14 @@ class Player:
 def main():
     """ This is not meant to be run as a script. Performs simple tests. """
     b = Board()
+    p = Player('b')
     b.print_board()
-    b.move_piece('r4', 'p4')
+    b.move_piece(p, 'r4', 'p4')
     b.print_board()
 
 
 if __name__ == '__main__':
     main()
-
 
 # Board 18 x 18
 # Players x2 (b/w)
