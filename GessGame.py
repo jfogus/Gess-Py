@@ -8,7 +8,11 @@ class IllegalMove(Exception):
 
 
 class GessGame:
-    """ Represents a game of Gess.  Contains main game logic. """
+    """ Represents a game of Gess.  Maintains game state, tracks turn,
+        maintains players and updates them.  Allows for making a move and resigning.
+        Will have a Board object for communicating player input to the Board.  Will have
+        2 Player objects for updating and checking their list of rings. Has no parameters. """
+
     def __init__(self):
         self._board = Board()
         self._game_state = 'UNFINISHED'
@@ -16,20 +20,28 @@ class GessGame:
         self._turn = 0
 
     def get_game_state(self):
-        """ Returns the state of the game. """
+        """ Has no parameters. Returns the state of the game. For tracking if the
+            game has been won. """
         return self._game_state
 
     def get_active_player(self):
+        """ Has no parameters. Returns the active player. For tracking whose turn
+            it is. """
         return self._players[self._turn]
 
     def resign_game(self):
-        """ Allows the current player to quit the game with a loss. """
+        """ Has no parameters. Allows the active player to quit the game with a
+            loss.  Updates a player and the game state. Returns nothing. """
         # Removes all rings from the current player
         self.get_active_player().resign()
         self.check_win_condition()
 
     def make_move(self, old_center, new_center):
-        """ Moves a piece defined by it's center to a new square defined by it's center. """
+        """ Has 2 parameters both in the form of a letter and number.  The first
+            corresponds to the center square of the originating piece, the second
+            corresponds to the desired location of the originating piece. Moves
+            a piece to a new square.  Returns True if the move was completed.
+            Returns False if the move was unable to be completed. """
         if self._game_state != 'UNFINISHED':
             return False
 
@@ -57,6 +69,8 @@ class GessGame:
         return True
 
     def update_rings(self):
+        """ Has no parameters. Checks the playable board spaces for any rings
+            and updates the players lists of rings accordingly. Returns nothing. """
         rings = self._board.check_for_rings()
 
         black_rings = []
@@ -75,11 +89,12 @@ class GessGame:
                 player.set_rings(white_rings)
 
     def switch_turn(self):
-        """ Switches the players turn. """
+        """ Has no parameters. Switches the active player to facilitate taking
+            turns. Returns nothing. """
         self._turn ^= 1
 
     def check_win_condition(self):
-        """ Checks if a player is without rings and updates the status of the game. """
+        """ Has no parameters. Checks if a player is without rings and updates the status of the game. """
         for i, player in enumerate(self._players):
             # The player has no rings
             if not player.has_rings():
@@ -89,7 +104,8 @@ class GessGame:
 
 
 class Board:
-    """ Represents a Gess game board. """
+    """ Represents a Gess game board.  Handles confirming legal moves, moving pieces,
+     and checking for new rings. """
 
     def __init__(self):
         # 20x20 matrix which includes gutters for 18x18 playable space
@@ -118,8 +134,8 @@ class Board:
     def move_piece(self, player, old_center, new_center):
         """ Moves the piece and updates the board if the move is legal. """
         # Convert human readable position into a list of indices
-        old_center = self._convert_position_to_indices(old_center)
-        new_center = self._convert_position_to_indices(new_center)
+        old_center = self.convert_position_to_indices(old_center)
+        new_center = self.convert_position_to_indices(new_center)
 
         # An old center in the gutter results in an illegal move
         last_row = len(self._spaces)
@@ -134,8 +150,8 @@ class Board:
         move = [new_center[0] - old_center[0], new_center[1] - old_center[1]]
 
         # Get pieces from indices of center square; sorted to ensure consistency
-        old_piece = self._get_piece_from_center(old_center)
-        new_piece = self._get_piece_from_center(new_center)
+        old_piece = self.get_piece_from_center(old_center)
+        new_piece = self.get_piece_from_center(new_center)
 
         # Check if move is legal in various ways
         if not self.is_legal_move(player, old_piece, new_piece):
@@ -157,11 +173,11 @@ class Board:
             new_squares[space[0]][space[1]] = new_stones[i]
 
         # Remove captured stones and move the piece
-        old_piece = self._remove_piece(old_piece)
-        self._place_piece(old_piece, move)
+        old_piece = self.remove_piece(old_piece)
+        self.place_piece(old_piece, move)
 
         # Remove gutter stones
-        self._clear_gutter()
+        self.clear_gutter()
 
         # Returns the old piece
         return old_squares, new_squares
@@ -172,7 +188,7 @@ class Board:
             for pos, stone in move.items():
                 self._spaces[pos[0]][pos[1]] = stone
 
-    def _remove_piece(self, squares):
+    def remove_piece(self, squares):
         """ Removes a piece from the board and returns it. """
         piece = {}
 
@@ -184,13 +200,13 @@ class Board:
 
         return piece
 
-    def _place_piece(self, squares, move):
+    def place_piece(self, squares, move):
         """ Places a piece on the board. """
         for location, stone in squares.items():
             new_space = location[0] + move[0], location[1] + move[1]
             self._spaces[new_space[0]][new_space[1]] = stone
 
-    def _clear_gutter(self):
+    def clear_gutter(self):
         """ Clears the gutters of stones. """
         # The board is a square so any length is ok for rows and columns
         length = len(self._spaces) - 1
@@ -262,7 +278,7 @@ class Board:
         new_center = new_piece[4]
 
         # Check if the move is in a legal direction
-        direction = self._get_valid_move(old_center, new_center)
+        direction = self.get_valid_move(old_center, new_center)
 
         if direction is None:
             return False
@@ -301,7 +317,7 @@ class Board:
         return True
 
     @staticmethod
-    def _get_valid_move(old_center, new_center):
+    def get_valid_move(old_center, new_center):
         """ Returns the offset from center of the piece's determining square or None if invalid. """
         vertical_move = new_center[0] - old_center[0]
         horizontal_move = new_center[1] - old_center[1]
@@ -360,7 +376,7 @@ class Board:
         return color
 
     @staticmethod
-    def _convert_position_to_indices(position):
+    def convert_position_to_indices(position):
         """ Converts a position in letter/number format to indices. """
         row = int(position[1:]) - 1
 
@@ -371,7 +387,7 @@ class Board:
         return row, col
 
     @staticmethod
-    def _get_piece_from_center(center):
+    def get_piece_from_center(center):
         """ Gets the set of 9 squares corresponding to the center square as a list of tuples. """
         sw_corner = center[0] - 1, center[1] - 1
 
@@ -380,7 +396,8 @@ class Board:
 
 
 class Player:
-    """ Represents a player of the Gess game. """
+    """ Represents a player of the Gess game.  Maintains and updates a personal
+     list of rings and its own color. """
 
     def __init__(self, color):
         self._color = color
