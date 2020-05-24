@@ -4,6 +4,7 @@
 
 
 class IllegalMove(Exception):
+    """ Represents an illegal move in the Gess Game. """
     pass
 
 
@@ -17,7 +18,7 @@ class GessGame:
         self._board = Board()
         self._game_state = 'UNFINISHED'
         self._players = (Player('b'), Player('w'))
-        self._turn = 0
+        self._active = 0
 
     def get_game_state(self):
         """ Has no parameters. Returns the state of the game. For tracking if the
@@ -27,16 +28,16 @@ class GessGame:
     def get_active_player(self):
         """ Has no parameters. Returns the active player. For tracking whose turn
             it is. """
-        return self._players[self._turn]
+        return self._players[self._active]
 
     def resign_game(self):
         """ Has no parameters. Allows the active player to quit the game with a
             loss.  Updates a player and the game state. Returns nothing. """
         # Removes all rings from the current player
-        self.get_active_player().resign()
+        self.get_active_player().set_rings([])
         self.check_win_condition()
 
-    def make_move(self, old_center, new_center):
+    def make_move(self, origin_square, target_square):
         """ Has 2 parameters both in the form of a letter and number.  The first
             corresponds to the center square of the originating piece, the second
             corresponds to the desired location of the originating piece. Moves
@@ -46,20 +47,23 @@ class GessGame:
             return False
 
         # Get the active player
-        active_player = self._players[self._turn]
+        active_player = self._players[self._active]
 
-        # Make the move if legal; does not check if destroyed last ring
+        # Make the move if legal; return False otherwise; does not check if destroyed last ring
         try:
-            move = self._board.move_piece(active_player, old_center, new_center)
+            moves = self._board.move_piece(active_player, origin_square, target_square)
         except IllegalMove:
             # The move was illegal for one of various reasons
             return False
 
-        # Ensure active player still has a ring, otherwise undo the move
-        self.update_rings()
-        if not active_player.has_rings():
-            self._board.reverse_move(move)
+        # Ensure active player did not destroy their last ring; undo the move and return False otherwise
+        try:
             self.update_rings()
+        except IllegalMove:
+            # Reverse the move
+            for move in moves:
+                self._board.place_piece(move)
+            return False
 
         self.check_win_condition()
         self.switch_turn()
@@ -69,29 +73,25 @@ class GessGame:
         return True
 
     def update_rings(self):
-        """ Has no parameters. Checks the playable board spaces for any rings
-            and updates the players lists of rings accordingly. Returns nothing. """
+        """ Has no parameters. Requests all rings from the Board object and updates
+            the players lists of rings accordingly. Raises an error if the active
+            player is attempting to destroy their last ring. Returns nothing. """
         rings = self._board.check_for_rings()
 
-        black_rings = []
-        white_rings = []
+        active_rings = [pos for pos, stone in rings.items() if stone == self.get_active_player().get_stone()]
+        inactive_rings = [pos for pos, stone in rings.items() if stone != self.get_active_player().get_stone()]
 
-        for pos, color in rings.items():
-            if color == 'b':
-                black_rings.append(pos)
-            elif color == 'w':
-                white_rings.append(pos)
+        # Prevent the active player from destroying their last rings
+        if len(active_rings) == 0:
+            raise IllegalMove
 
-        for player in self._players:
-            if player.get_color() == 'b':
-                player.set_rings(black_rings)
-            elif player.get_color() == 'w':
-                player.set_rings(white_rings)
+        self.get_active_player().set_rings(active_rings)
+        self._players[self._active ^ 1].set_rings(inactive_rings)
 
     def switch_turn(self):
         """ Has no parameters. Switches the active player to facilitate taking
             turns. Returns nothing. """
-        self._turn ^= 1
+        self._active ^= 1
 
     def check_win_condition(self):
         """ Has no parameters. Checks if a player is without rings and updates the status of the game. """
@@ -99,7 +99,7 @@ class GessGame:
             # The player has no rings
             if not player.has_rings():
                 # Get the color of the opposite player and create the state message
-                state = self._players[i ^ 1].get_long_form_color() + "_WON"
+                state = self._players[i ^ 1].get_color() + "_WON"
                 self._game_state = state
 
 
@@ -109,7 +109,7 @@ class Board:
 
     def __init__(self):
         # 20x20 matrix which includes gutters for 18x18 playable space
-        self._spaces = [['' for _ in range(20)] for _ in range(20)]
+        self._squares = [['' for _ in range(20)] for _ in range(20)]
 
         # There are 3 initial layouts for rows
         row_type_1 = [2, 4, 6, 7, 8, 9, 10, 11, 12, 13, 15, 17]
@@ -123,133 +123,135 @@ class Board:
         # Initial placement of stones on the board
         for row_num, row_type in black_rows.items():
             for col_num in row_type:
-                self._spaces[row_num][col_num] = 'b'
+                self._squares[row_num][col_num] = 'b'
         for row_num, row_type in white_rows.items():
             for col_num in row_type:
-                self._spaces[row_num][col_num] = 'w'
+                self._squares[row_num][col_num] = 'w'
 
     def get_board_spaces(self):
-        return self._spaces
+        """ Has no parameters.  Returns the squares on the board in the
+            form of a 20x20 matrix. """
+        return self._squares
 
-    def move_piece(self, player, old_center, new_center):
+    def move_piece(self, player, origin_square, target_square):
         """ Moves the piece and updates the board if the move is legal. """
-        # Convert human readable position into a list of indices
-        old_center = self.convert_position_to_indices(old_center)
-        new_center = self.convert_position_to_indices(new_center)
+        # Convert human readable position into a tuple of indices
+        origin_square = self.to_indices(origin_square)
+        target_square = self.to_indices(target_square)
 
-        # An old center in the gutter results in an illegal move
-        last_row = len(self._spaces)
-        if old_center[0] in (0, last_row) or old_center[1] in (0, last_row):
+        # An center of origin or target is in the gutter results in an illegal move
+        if self.in_gutter(origin_square) or self.in_gutter(target_square):
             raise IllegalMove
 
-        # A new center in the gutter results in an illegal move
-        if new_center[0] in (0, last_row) or old_center[1] in (0, last_row):
-            raise IllegalMove
-
-        # Get spaces moved in the form [rows, columns]
-        move = [new_center[0] - old_center[0], new_center[1] - old_center[1]]
+        # Get the change per square from origin to target
+        delta = self.get_delta(origin_square, target_square)
 
         # Get pieces from indices of center square; sorted to ensure consistency
-        old_piece = self.get_piece_from_center(old_center)
-        new_piece = self.get_piece_from_center(new_center)
+        origin_piece = self.get_piece(origin_square)
+        target_piece = self.get_piece(target_square)
 
-        # Check if move is legal in various ways
-        if not self.is_legal_move(player, old_piece, new_piece):
+        # Check if the piece belongs to the player
+        if not self.is_player_piece(player, origin_piece):
             raise IllegalMove
 
-        # Get the old piece and new piece each in the form {(row, col): stone} for returning
-        old_squares = {}
-        new_squares = {}
+        # Check if the piece can move in the desired direction
+        if not self.is_legal_direction(origin_piece, delta):
+            raise IllegalMove
 
-        # Get stones of the pieces
-        old_stones = [self._spaces[row][col] for row, col in old_piece]
-        new_stones = [self._spaces[row][col] for row, col in new_piece]
+        # Check if the piece can move the desired distance
+        if not self.is_legal_distance(origin_piece, delta):
+            raise IllegalMove
 
-        # Populate old_squares and new_squares
-        for i, space in enumerate(old_piece):
-            old_squares[space[0]][space[1]] = old_stones[i]
-
-        for i, space in enumerate(new_piece):
-            new_squares[space[0]][space[1]] = new_stones[i]
-
-        # Remove captured stones and move the piece
-        old_piece = self.remove_piece(old_piece)
-        self.place_piece(old_piece, move)
+        # Move the origin piece to the destination, overwriting all stones
+        self.place_piece(origin_piece, target_piece)
 
         # Remove gutter stones
         self.clear_gutter()
 
-        # Returns the old piece
-        return old_squares, new_squares
+        # Returns the pieces prior to change
+        return origin_piece, target_piece
 
-    def reverse_move(self, moves):
-        """ Replaces the stones from a move that had been made. """
-        for move in moves:
-            for pos, stone in move.items():
-                self._spaces[pos[0]][pos[1]] = stone
+    @staticmethod
+    def get_delta(origin_square, target_square):
+        """ Has 2 parameters, squares, in the form (row, col).  Calculates
+        the number of rows and columns moved.  Returns target - origin
+        as a tuple in the form (delta_row, delta_col). """
+        return target_square[0] - origin_square[0], target_square[1] - origin_square[1]
 
-    def remove_piece(self, squares):
-        """ Removes a piece from the board and returns it. """
-        piece = {}
+    def place_piece(self, origin_piece, target_piece=None):
+        """ Has 2 parameters, pieces, in the form {(row, col): stone}.
+            If only one argument given, places the stones in the locations of the
+            single parameter. Places the stones from the source_piece into the
+            locations of the target piece.  Returns nothing. """
+        # Copies stones to its own locations if only one argument given
+        if target_piece is None:
+            target_piece = origin_piece
 
-        for square in squares:
-            # Creates a dictionary with tuple keys identifying board location
-            # and value of the stone at that location
-            piece[square[0], square[1]] = self._spaces[square[0]][square[1]]
-            self._spaces[square[0]][square[1]] = ""
+        # Get origin stones and target squares
+        origin_stones = origin_piece.values
+        target_squares = target_piece.keys()
 
-        return piece
+        # Place the source stone at the target location
+        for i in range(len(origin_stones)):
+            self._squares[target_squares[i][0]][target_squares[i][1]] = origin_stones[i]
 
-    def place_piece(self, squares, move):
-        """ Places a piece on the board. """
-        for location, stone in squares.items():
-            new_space = location[0] + move[0], location[1] + move[1]
-            self._spaces[new_space[0]][new_space[1]] = stone
+    def in_gutter(self, square):
+        """ Has one parameter, a square, in the form of (row, col).  Determines
+            if the square is in the gutter around the edges of the board.
+            Returns True if it is in the gutter, returns False otherwise. """
+        gutter_indices = (0, len(self._squares))
+
+        # Check if row is in in a gutter row or column is in a gutter column
+        if square[0] in gutter_indices or square[1] in gutter_indices:
+            return True
 
     def clear_gutter(self):
-        """ Clears the gutters of stones. """
+        """ Has no parameters. Clears the gutters of stones. Returns nothing. """
         # The board is a square so any length is ok for rows and columns
-        length = len(self._spaces) - 1
+        length = len(self._squares) - 1
 
         # Clear the first and last row and column
         for i in range(length):
-            self._spaces[0][i] = ""
-            self._spaces[i][0] = ""
-            self._spaces[length][i] = ""
-            self._spaces[i][length] = ""
+            self._squares[0][i] = ""
+            self._squares[i][0] = ""
+            self._squares[length][i] = ""
+            self._squares[i][length] = ""
 
     def check_for_rings(self):
+        """ Has no parameters. Checks the entire board for any players rings.
+        Returns a dictionary of rings in the form {(row, col}: stone}
+        corresponding to the center of the ring. """
         rings = {}
         # Returns rings in the form {(center_row, center_col): color}
-        for row_num in range(1, 20):
-            for col_num in range(1, 20):
-                stone = self._spaces[row_num][col_num]
-                if stone != "":
-                    row_1 = self._spaces[row_num][col_num:col_num + 3]
-                    row_2 = self._spaces[row_num + 1][col_num:col_num + 3]
-                    row_3 = self._spaces[row_num + 2][col_num:col_num + 3]
+        for row_num, col_num in zip(range(1, 20), range(1, 20)):
+            stone = self._squares[row_num][col_num]
+            if stone != "":
+                row_1 = self._squares[row_num][col_num:col_num + 3]
+                row_2 = self._squares[row_num + 1][col_num:col_num + 3]
+                row_3 = self._squares[row_num + 2][col_num:col_num + 3]
 
-                    if row_1 == [stone, stone, stone] and \
-                            row_2 == [stone, "", stone] and \
-                            row_3 == [stone, stone, stone]:
-                        rings[row_num + 1, col_num + 1] = stone
+                if row_1 == [stone, stone, stone] and \
+                        row_2 == [stone, "", stone] and \
+                        row_3 == [stone, stone, stone]:
+                    rings[row_num + 1, col_num + 1] = stone
 
         return rings
 
     def print_board(self):
-        """ Prints the board. """
+        """ Has no parameters. Prints the board to the console in an
+            easily readable format. Returns nothing. """
         # Reverse order for user understanding
-        for i in range(len(self._spaces) - 1, -1, -1):
+        for i in range(len(self._squares) - 1, -1, -1):
             # Print cell divider
             print("|", end="")
 
-            for j in range(len(self._spaces)):
+            for j in range(len(self._squares)):
                 # Empty cells printed as spaces to prevent collapse
-                if self._spaces[i][j] == "":
+                if self._squares[i][j] == "":
                     print(" ", end="|")
                 else:
                     # Print stone in the cell
-                    print(self._spaces[i][j], end="|")
+                    print(self._squares[i][j], end="|")
 
             # print row numbers
             print(i + 1)
@@ -261,123 +263,113 @@ class Board:
 
         print("\n")
 
-    def is_legal_move(self, player, old_piece, new_piece):
-        """ Returns true if the move from the old center to the new center is a legal move. """
-        # Check if the piece only contains a single color or if no stones
-        piece_color = self.get_single_color_piece(old_piece)
-        if piece_color is None:
+    @staticmethod
+    def is_player_piece(player, piece):
+        """ Has 2 parameters, player and piece, in the form of a Player object
+            and a dictionary in the form {(row, col): stone} corresponding to
+            a 3x3 square. Returns True if all stones in the piece belong to
+            player and False otherwise. """
+        player_stone = player.get_stone()
+        stone_set = set(piece.values())
+
+        # Check stones in the piece for unowned stones or an empty piece
+        if stone_set != {player_stone} or stone_set != {player_stone, ""}:
             return False
 
-        # Check if the color of the piece is the appropriate color's turn
-        color = player.get_color()
-        if piece_color != color:
-            return False
-
-        # In the flag matrix of the piece, 4 is the index of the center
-        old_center = old_piece[4]
-        new_center = new_piece[4]
-
-        # Check if the move is in a legal direction
-        direction = self.get_valid_move(old_center, new_center)
-
-        if direction is None:
-            return False
-
-        # Check if the piece can move in the desired direction
-        direction_stone = old_center[0] + direction[0], old_center[1] + direction[1]
-        center_stone = self._spaces[old_center[0]][old_center[1]]
-
-        if not self._spaces[direction_stone[0]][direction_stone[1]] == color:
-            return False
-
-        # Check if the piece can move the desired distance
-        # Any nonzero distance is sufficient since movement is only in 8 directions
-        if old_center[0] != new_center[0]:
-            distance = new_center[0] - old_center[0]
-        else:
-            distance = new_center[1] - old_center[1]
-
-        if not (center_stone == color or abs(distance) <= 3):
-            return False
-
-        # Simulate the movement of the piece, one square at a time to check premature overlap
-        for delta in range(distance):
-            # Checks moved squares up to but not including the final movement
-            movement = delta * direction[0], delta * direction[1]
-
-            for square in old_piece:
-                # Look at each square of movement to see if there is premature overlap
-                delta_square = square[0] + movement[0], square[1] + movement[1]
-                stone = self._spaces[delta_square[0]][delta_square[1]]
-
-                # Make sure there is not another stone in the path of the move
-                if delta_square not in old_piece and stone != color and stone != "":
-                    return False
-
+        # The piece belongs to player
         return True
 
     @staticmethod
-    def get_valid_move(old_center, new_center):
-        """ Returns the offset from center of the piece's determining square or None if invalid. """
-        vertical_move = new_center[0] - old_center[0]
-        horizontal_move = new_center[1] - old_center[1]
+    def is_legal_direction(piece, delta):
+        """ Has 2 parameters, piece and delta, a dictionary in the form
+        {(row, col): stone} corresponding to a 3x3 square and a tuple of the
+        amount of change in rows and columns in the form (row_delta, col_delta).
+        Returns True if the move is in a legal direction, returns False otherwise."""
+        # Check if the move direction is generally legal
+        if not (delta[0] == 0 or delta[1] == 0 or abs(delta[0]) == abs(delta[1])):
+            # Not horizontal, vertical, or diagonal
+            return False
 
-        # North is - direction, South is + direction
-        offset = None
-
-        if vertical_move == 0 and horizontal_move > 0:
+        stones = piece.values()
+        # Check if the move direction is legal for the piece
+        if delta[0] == 0 and delta[1] > 0 and stones[5] == '':
             # Eastward move
-            offset = 0, 1
+            return False
 
-        elif vertical_move == 0 and horizontal_move < 0:
+        if delta[0] == 0 and delta[1] < 0 and stones[3] == '':
             # Westward move
-            offset = 0, -1
+            return False
 
-        elif vertical_move > 0 and horizontal_move == 0:
+        if delta[0] > 0 and delta[1] == 0 and stones[1] == '':
             # Northward move
-            offset = 1, 0
+            return False
 
-        elif vertical_move < 0 and horizontal_move == 0:
+        if delta[0] < 0 and delta[1] == 0 and stones[7] == '':
             # Southward move
-            offset = -1, 0
+            return False
 
-        elif vertical_move > 0 and vertical_move == horizontal_move:
+        if delta[0] > 0 and delta[0] == delta[1] and stones[2] == '':
             # Northeasterly move
-            offset = 1, 1
+            return False
 
-        elif vertical_move < 0 and vertical_move == horizontal_move:
+        if delta[0] < 0 and delta[0] == delta[1] and stones[6] == '':
             # Southwesterly move
-            offset = -1, -1
+            return False
 
-        elif vertical_move > 0 and (vertical_move + horizontal_move) == 0:
+        if delta[0] > 0 and (delta[0] + delta[1]) == 0 and stones[0] == '':
             # Northwesterly move
-            offset = 1, -1
+            return False
 
-        elif vertical_move < 0 and (vertical_move + horizontal_move) == 0:
+        if delta[0] < 0 and (delta[0] + delta[1]) == 0 and stones[8] == '':
             # Southeasterly move
-            offset = -1, 1
+            return False
 
-        return offset
+        # The piece can move in the given direction
+        return True
 
-    def get_single_color_piece(self, squares):
-        """ Gets the single color in a piece, None if multiple colors"""
-        color = None
+    def is_legal_distance(self, piece, delta):
+        """ Has 2 parameters, piece and delta, a dictionary in the form
+            {(row, col): stone} corresponding to a 3x3 square and a tuple of the
+            amount of change in rows and columns in the form (row_delta, col_delta).
+            Returns True if the move is a legal distance, returns False otherwise. """
+        stones = piece.values()
+        locations = piece.keys()
+        # Only 8 directions are allowed, the absolute value of any direction is the spaces moved
+        distance = abs(delta[0])
 
-        for square in squares:
-            stone = self._spaces[square[0]][square[1]]
+        # stones[4] is the center stone;
+        if not (stones[4] != '' or distance <= 3):
+            return False
 
-            if stone != "" and color is None:
-                # Gets the color of the stone
-                color = stone
-            elif stone != "" and stone != color:
-                # There are two color stones in the piece
-                return None
+        # Get the start and step direction for the range
+        row_mod = 1
+        col_mod = 1
+        if delta[0] < 0:
+            row_mod = -1
+        if delta[1] < 0:
+            col_mod = -1
 
-        return color
+        # Simulate the movement of the piece, one square at a time to check premature overlap
+        # I learned how to iterate over two lists from SO:
+        # https://stackoverflow.com/questions/1663807/how-to-iterate-through-two-lists-in-parallel
+        # The idea to do it and how it applies is my own.
+        for row_delta, col_delta in zip(range(row_mod, delta[0], step=row_mod), range(col_mod, delta[1], step=col_mod)):
+            # Checks moved squares up to but not including the final movement
+            for location in locations:
+                row = location[0] + row_delta
+                col = location[1] + col_delta
+                stone = self._squares[row][col]
+                if (row, col) not in locations and stone != '':
+                    # The square is not in the origin piece, the move
+                    # is not the last move, and the square has a stone.
+                    return False
 
     @staticmethod
-    def convert_position_to_indices(position):
-        """ Converts a position in letter/number format to indices. """
+    def to_indices(position):
+        """ Static method. Has 1 parameter in the form of a string. The string
+            must be a letter followed by a number. Converts a position in
+            letter/number format to indices corresponding to the board's
+            squares. Returns the indices in the form (row, col). """
         row = int(position[1:]) - 1
 
         # Get the row and column number; the offset from A is the row number
@@ -386,58 +378,71 @@ class Board:
 
         return row, col
 
-    @staticmethod
-    def get_piece_from_center(center):
-        """ Gets the set of 9 squares corresponding to the center square as a list of tuples. """
-        sw_corner = center[0] - 1, center[1] - 1
+    def get_piece(self, square):
+        """ Has 1 parameter, a square, in the form of (row, col). Collects with it
+            the surrounding 8 squares.  Returns all 9 squares as a dictionary in
+            the form {(row, col): stone} """
+        # Get the SW corner of the 3x3 square.
+        sw_corner = square[0] - 1, square[1] - 1
 
-        # row + (0 to 3), col + (0 to 3)
-        return sorted([(sw_corner[0] + i, sw_corner[1] + j) for j in range(3) for i in range(3)])
+        # Get a 3x3 dictionary of the coordinates of squares and their stones
+        piece = {}
+        for row in range(3):
+            for col in range(3):
+                # Position on the board
+                square = sw_corner[0] + row, sw_corner[1] + col
+                piece[square[0], square[1]] = self._squares[square[0]][square[1]]
+
+        # Sorted to ensure consistency in use
+        return piece
 
 
 class Player:
-    """ Represents a player of the Gess game.  Maintains and updates a personal
-     list of rings and its own color. """
+    """ Represents a player of the Gess game. Has no knowledge of any other classes.
+        Maintains, updates, and provides information on its own list of rings, its
+        stone marker, and its own color. Has one parameters, a stone, in the form
+        of a character, either 'w' or 'b' """
 
-    def __init__(self, color):
-        self._color = color
+    def __init__(self, stone):
+        self._stone = stone
+        self._color = ""
         self._rings = []
-        self._long_form_color = ""
 
-        # Sets the initial rings and long form color for each player
-        if color == "b":
+        # Sets the initial rings and color for each player
+        if stone == "b":
             self._rings.append((2, 11))
-            self._long_form_color = "BLACK"
-        elif color == "w":
+            self._color = "BLACK"
+        elif stone == "w":
             self._rings.append((17, 11))
-            self._long_form_color = "WHITE"
+            self._color = "WHITE"
+
+    def get_stone(self):
+        """ Has no parameters. Returns the player's stone as a string: 'w' or 'b' """
+        return self._stone
 
     def get_color(self):
-        """ Returns the player's color as a char. """
+        """ Has no parameters. Returns the player's color as a string:
+            "WHITE" or "BLACK" """
         return self._color
 
-    def get_long_form_color(self):
-        """ Gets a long text form of the player's color. """
-        return self._long_form_color
-
     def get_rings(self):
-        """ Returns the locations of the centers of players rings. """
+        """ Has no parameters. Returns a list of tuples indicating the locations of
+            the centers of the player's rings in (row, col) format. """
         return self._rings
 
+    def set_rings(self, rings):
+        """ Receives a list of tuples indicating the locations of the centers of
+            the player's rings in (row, col) format. Entirely replaces the previous
+            list of rings with the new list of rings.  Returns nothing. """
+        self._rings = rings
+
     def has_rings(self):
-        """ Returns true if the player has any rings. """
+        """ Has no parameters. Returns True if the player has at least one ring,
+            otherwise returns False. """
         if len(self._rings) > 0:
             return True
 
         return False
-
-    def set_rings(self, rings):
-        """ Replaces the previous list of rings with a new list of rings. """
-        self._rings = rings
-
-    def resign(self):
-        """ Removes all of the players rings. """
-        self._rings = []
 
 
 def main():
