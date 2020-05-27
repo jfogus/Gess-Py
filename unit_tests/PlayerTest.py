@@ -90,6 +90,8 @@ class PlayerTest(unittest.TestCase):
 
         self.assertTrue(p.has_rings())
 
+    # TODO: Test personal stone tracking after it has been implemented.
+
 
 def main():
     """ Performs unit tests of the Player class for a Gess Game. """
