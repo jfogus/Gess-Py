@@ -68,7 +68,7 @@ class GessGame:
         self.check_win_condition()
         self.switch_turn()
 
-        self._board.print_board()
+        # self._board.print_board()
 
         return True
 
@@ -128,7 +128,7 @@ class Board:
             for col_num in row_type:
                 self._squares[row_num][col_num] = 'w'
 
-    def get_board_spaces(self):
+    def get_squares(self):
         """ Has no parameters.  Returns the squares on the board in the
             form of a 20x20 matrix. """
         return self._squares
@@ -163,6 +163,7 @@ class Board:
             raise IllegalMove
 
         # Move the origin piece to the destination, overwriting all stones
+        self.remove_piece(origin_piece)
         self.place_piece(origin_piece, target_piece)
 
         # Remove gutter stones
@@ -171,11 +172,18 @@ class Board:
         # Returns the pieces prior to change
         return origin_piece, target_piece
 
+    def remove_piece(self, piece):
+        """ Has 1 parameter, piece, in the form {(row, col}: stone}. Removes
+            the stones from the board at the locations indicated by the
+            piece. Returns nothing. """
+        for location in piece.keys():
+            self._squares[location[0]][location[1]] = ""
+
     @staticmethod
     def get_delta(origin_square, target_square):
         """ Has 2 parameters, squares, in the form (row, col).  Calculates
-        the number of rows and columns moved.  Returns target - origin
-        as a tuple in the form (delta_row, delta_col). """
+            the number of rows and columns moved.  Returns target - origin
+            as a tuple in the form (delta_row, delta_col). """
         return target_square[0] - origin_square[0], target_square[1] - origin_square[1]
 
     def place_piece(self, origin_piece, target_piece=None):
@@ -188,8 +196,8 @@ class Board:
             target_piece = origin_piece
 
         # Get origin stones and target squares
-        origin_stones = origin_piece.values
-        target_squares = target_piece.keys()
+        origin_stones = list(origin_piece.values())
+        target_squares = list(target_piece.keys())
 
         # Place the source stone at the target location
         for i in range(len(origin_stones)):
@@ -199,11 +207,13 @@ class Board:
         """ Has one parameter, a square, in the form of (row, col).  Determines
             if the square is in the gutter around the edges of the board.
             Returns True if it is in the gutter, returns False otherwise. """
-        gutter_indices = (0, len(self._squares))
+        gutter_indices = (0, len(self._squares) - 1)
 
         # Check if row is in in a gutter row or column is in a gutter column
         if square[0] in gutter_indices or square[1] in gutter_indices:
             return True
+
+        return False
 
     def clear_gutter(self):
         """ Has no parameters. Clears the gutters of stones. Returns nothing. """
@@ -219,21 +229,25 @@ class Board:
 
     def check_for_rings(self):
         """ Has no parameters. Checks the entire board for any players rings.
-        Returns a dictionary of rings in the form {(row, col}: stone}
-        corresponding to the center of the ring. """
+            Returns a dictionary of rings in the form {(row, col}: stone}
+            corresponding to the center of the ring. """
         rings = {}
         # Returns rings in the form {(center_row, center_col): color}
-        for row_num, col_num in zip(range(1, 20), range(1, 20)):
-            stone = self._squares[row_num][col_num]
-            if stone != "":
-                row_1 = self._squares[row_num][col_num:col_num + 3]
-                row_2 = self._squares[row_num + 1][col_num:col_num + 3]
-                row_3 = self._squares[row_num + 2][col_num:col_num + 3]
+        # Only goes up to 18 to prevent list out of index
+        for row_num in range(1, 18):
+            for col_num in range(1, 18):
+                stone = self._squares[row_num][col_num]
+                if stone != "":
+                    # Starts at the southwest corner and checks a "piece" for a ring
+                    row_1 = self._squares[row_num][col_num:col_num + 3]
+                    row_2 = self._squares[row_num + 1][col_num:col_num + 3]
+                    row_3 = self._squares[row_num + 2][col_num:col_num + 3]
 
-                if row_1 == [stone, stone, stone] and \
-                        row_2 == [stone, "", stone] and \
-                        row_3 == [stone, stone, stone]:
-                    rings[row_num + 1, col_num + 1] = stone
+                    # Makes sure the stones form a ring and are all the same kind
+                    if row_1 == [stone, stone, stone] and \
+                            row_2 == [stone, "", stone] and \
+                            row_3 == [stone, stone, stone]:
+                        rings[row_num + 1, col_num + 1] = stone
 
         return rings
 
@@ -273,7 +287,7 @@ class Board:
         stone_set = set(piece.values())
 
         # Check stones in the piece for unowned stones or an empty piece
-        if stone_set != {player_stone} or stone_set != {player_stone, ""}:
+        if not(stone_set == {player_stone} or stone_set == {player_stone, ''}):
             return False
 
         # The piece belongs to player
@@ -290,7 +304,12 @@ class Board:
             # Not horizontal, vertical, or diagonal
             return False
 
-        stones = piece.values()
+        # Check if no move direction.
+        if delta[0] == 0 and delta[1] == 0:
+            return False
+
+        stones = list(piece.values())
+
         # Check if the move direction is legal for the piece
         if delta[0] == 0 and delta[1] > 0 and stones[5] == '':
             # Eastward move
@@ -300,27 +319,27 @@ class Board:
             # Westward move
             return False
 
-        if delta[0] > 0 and delta[1] == 0 and stones[1] == '':
+        if delta[0] > 0 and delta[1] == 0 and stones[7] == '':
             # Northward move
             return False
 
-        if delta[0] < 0 and delta[1] == 0 and stones[7] == '':
+        if delta[0] < 0 and delta[1] == 0 and stones[1] == '':
             # Southward move
             return False
 
-        if delta[0] > 0 and delta[0] == delta[1] and stones[2] == '':
+        if delta[0] > 0 and delta[0] == delta[1] and stones[8] == '':
             # Northeasterly move
             return False
 
-        if delta[0] < 0 and delta[0] == delta[1] and stones[6] == '':
+        if delta[0] < 0 and delta[0] == delta[1] and stones[0] == '':
             # Southwesterly move
             return False
 
-        if delta[0] > 0 and (delta[0] + delta[1]) == 0 and stones[0] == '':
+        if delta[0] > 0 and (delta[0] + delta[1]) == 0 and stones[6] == '':
             # Northwesterly move
             return False
 
-        if delta[0] < 0 and (delta[0] + delta[1]) == 0 and stones[8] == '':
+        if delta[0] < 0 and (delta[0] + delta[1]) == 0 and stones[2] == '':
             # Southeasterly move
             return False
 
@@ -332,8 +351,8 @@ class Board:
             {(row, col): stone} corresponding to a 3x3 square and a tuple of the
             amount of change in rows and columns in the form (row_delta, col_delta).
             Returns True if the move is a legal distance, returns False otherwise. """
-        stones = piece.values()
-        locations = piece.keys()
+        stones = list(piece.values())
+        locations = list(piece.keys())
         # Only 8 directions are allowed, the absolute value of any direction is the spaces moved
         distance = abs(delta[0])
 
@@ -341,19 +360,26 @@ class Board:
         if not (stones[4] != '' or distance <= 3):
             return False
 
-        # Get the start and step direction for the range
-        row_mod = 1
-        col_mod = 1
-        if delta[0] < 0:
-            row_mod = -1
-        if delta[1] < 0:
-            col_mod = -1
+        # Get the series of steps taken to get to the full move
+        if delta[0] > 0:
+            row_steps = range(1, delta[0])
+        elif delta[0] < 0:
+            row_steps = range(-1, delta[0], -1)
+        else:
+            row_steps = [0 for _ in range(abs(delta[1]))]
+
+        if delta[1] > 0:
+            col_steps = range(1, delta[1])
+        elif delta[1] < 0:
+            col_steps = range(-1, delta[1], -1)
+        else:
+            col_steps = [0 for _ in range(abs(delta[0]))]
 
         # Simulate the movement of the piece, one square at a time to check premature overlap
         # I learned how to iterate over two lists from SO:
         # https://stackoverflow.com/questions/1663807/how-to-iterate-through-two-lists-in-parallel
         # The idea to do it and how it applies is my own.
-        for row_delta, col_delta in zip(range(row_mod, delta[0], step=row_mod), range(col_mod, delta[1], step=col_mod)):
+        for row_delta, col_delta in zip(row_steps, col_steps):
             # Checks moved squares up to but not including the final movement
             for location in locations:
                 row = location[0] + row_delta
@@ -363,6 +389,8 @@ class Board:
                     # The square is not in the origin piece, the move
                     # is not the last move, and the square has a stone.
                     return False
+
+        return True
 
     @staticmethod
     def to_indices(position):
@@ -449,8 +477,6 @@ def main():
     """ This is not meant to be run as a script. Performs simple tests. """
     b = Board()
     p = Player('b')
-    b.print_board()
-    b.move_piece(p, 'r4', 'p4')
     b.print_board()
 
 
