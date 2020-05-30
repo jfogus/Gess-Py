@@ -3,7 +3,7 @@
 # Description:  Tests the Player class of the GessGame file.
 
 
-from GessGame import Player
+from Gess import Player
 import unittest
 
 

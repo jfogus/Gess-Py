@@ -2,7 +2,7 @@
 # Date:  5/22/20
 # Description:  Unit tests for the GessGame class of the Gess Game
 
-from GessGame import GessGame, IllegalMove
+from Gess import GessGame, IllegalMove
 import unittest
 
 

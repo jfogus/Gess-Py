@@ -3,7 +3,7 @@
 # Description:  Unit tests for the Board of a Gess game
 
 
-from GessGame import Board, Player, IllegalMove
+from Gess import Board, Player, IllegalMove
 import unittest
 
 
