@@ -43,6 +43,7 @@ class SquareView(QLabel):
     def mousePressEvent(self, event: QMouseEvent):
         """ Emits a signal on mouse press with the row, col coordinates
             of the clicked square. """
+        # noinspection PyUnresolvedReferences
         self.clicked.emit(self._coords)
 
     def get_coords(self):
