@@ -4,18 +4,17 @@
 
 
 from PySide2.QtWidgets import QGridLayout, QWidget
-from models.Board import Board
-from controllers.BoardController import BoardController
 from views.SquareView import SquareView
 
 
 class BoardView(QWidget):
-    def __init__(self):
+    """ Creates a 20x20 grid of SquareViews. """
+    def __init__(self, model, controller):
         super(BoardView, self).__init__()
 
         # Attach the model and controller
-        self._board_model = Board()
-        self._controller = BoardController()
+        self._board_model = model
+        self._board_controller = controller
 
         # Setup the layout
         layout = QGridLayout()
@@ -29,6 +28,9 @@ class BoardView(QWidget):
             for j in range(model_squares[0]):
                 self._squares[i][j] = SquareView((i, j))
                 layout.addWidget(self._squares[i][j], i, j)
+
+                # Connect click event to the controller
+                self._squares[i][j].clicked.connect(self._baord_controller.handle_square_click)
 
         self.setLayout(layout)
 
