@@ -5,25 +5,28 @@
 
 import sys
 from models.Board import Board
-from models.Player import Player
+from models.Game import Game
+from controllers.BoardController import BoardController
 from PySide2.QtWidgets import QApplication
 from views.GameView import GameView
 
 
-def main():
+class Gess(QApplication):
     """ This is not meant to be run as a script. Performs simple tests. """
-    b = Board()
-    p = Player('b')
-    b.move_piece(p, 'c3', 'c4')
-    b.print_board()
+    def __init__(self, sys_argv):
+        super(Gess, self).__init__(sys_argv)
 
-    app = QApplication(sys.argv)
+        # Models
+        self.game_model = Game()
 
-    board = GameView()
-    board.show()
+        # Controllers
+        self.board_controller = BoardController(self.game_model)
 
-    app.exec_()
+        # Views
+        self.game_view = GameView(self.game_model.board(), self.board_controller)
+        self.game_view.show()
 
 
 if __name__ == "__main__":
-    main()
+    app = Gess(sys.argv)
+    sys.exit(app.exec_())
