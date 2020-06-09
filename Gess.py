@@ -4,7 +4,6 @@
 
 
 import sys
-from models.Board import Board
 from models.Game import Game
 from controllers.BoardController import BoardController
 from PySide2.QtWidgets import QApplication
