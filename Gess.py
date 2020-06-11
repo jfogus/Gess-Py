@@ -6,8 +6,8 @@
 import sys
 from models.Game import Game
 from controllers.BoardController import BoardController
-from PySide2.QtWidgets import QApplication
 from views.GameView import GameView
+from PySide2.QtWidgets import QApplication
 
 
 class Gess(QApplication):
@@ -22,7 +22,7 @@ class Gess(QApplication):
         self.board_controller = BoardController(self.game_model)
 
         # Views
-        self.game_view = GameView(self.game_model.board(), self.board_controller)
+        self.game_view = GameView(self.game_model, self.board_controller)
         self.game_view.show()
 
 
