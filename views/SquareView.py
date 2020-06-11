@@ -37,7 +37,8 @@ class SquareView(QLabel):
         # Load stone images
         self._stones = {
             'w': QPixmap("assets/white_circle.png"),
-            'b': QPixmap("assets/black_circle.png")
+            'b': QPixmap("assets/black_circle.png"),
+            'e': QPixmap()
         }
 
     def mousePressEvent(self, event: QMouseEvent):
@@ -73,7 +74,7 @@ class SquareView(QLabel):
 
     def remove_stone(self):
         """ Clears the square of any stone. """
-        self.setText("")
+        self.setPixmap(self._stones['e'])
 
 
 if __name__ == "__main__":
