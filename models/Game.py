@@ -3,20 +3,26 @@
 # Description:  Creates an implementation of the Gess game which handles main game logic
 #               including making a move, changing turns, resigning, and tracking game state.
 
-# TODO: This should probably be a controller.
-from models.IllegalMove import IllegalMove
+
+# TODO: Connect to controller signal
 from models.Board import Board
 from models.Player import Player
+from PySide2.QtCore import Signal, QObject
 
 
-class GessGame:
+class Game(QObject):
     """ Represents a game of Gess.  Maintains game state, tracks turn,
         maintains players and updates them.  Allows for making a move and resigning.
         Will have a Board object for communicating player input to the Board.  Will have
         2 Player objects for updating and checking their list of rings. Has no parameters. """
+    turn_changed = Signal()
+    board_updated = Signal()
 
     def __init__(self):
+        super(Game, self).__init__()
+
         self._board = Board()
+        self._status_message = ""
         self._game_state = 'UNFINISHED'
         self._players = (Player('b'), Player('w'))
         self._active = 0
@@ -24,6 +30,17 @@ class GessGame:
     # TODO: Update the players stones when making a move.
     # TODO: Check the players stones when checking for rings.
     # TODO: Refactor ring check
+    def get_board(self):
+        """ Returns the 20x20 board. """
+        return self._board
+
+    def get_status_message(self):
+        """ Returns the status message. """
+        return self._status_message
+
+    def set_status_message(self, msg):
+        """ Sets the status message with a new string. """
+        self._status_message = msg
 
     def get_game_state(self):
         """ Has no parameters. Returns the state of the game. For tracking if the
@@ -35,47 +52,28 @@ class GessGame:
             it is. """
         return self._players[self._active]
 
+    def make_move(self, source, target):
+        """ Moves the piece and updates the state of the game. """
+        self._board.move_piece(source, target)
+        self._board.set_selected(None)
+
+        # Remove gutter stones
+        self._board.clear_gutter()
+        self.update_rings()
+        self.check_win_condition()
+        # TODO: Update the StatusView if the win condition is changed
+        self.switch_turn()
+
+        # Signals the board is updated
+        # noinspection PyUnresolvedReferences
+        self.board_updated.emit()
+
     def resign_game(self):
         """ Has no parameters. Allows the active player to quit the game with a
             loss.  Updates a player and the game state. Returns nothing. """
         # Removes all rings from the current player
         self.get_active_player().set_rings([])
         self.check_win_condition()
-
-    def make_move(self, origin_square, target_square):
-        """ Has 2 parameters both in the form of a letter and number.  The first
-            corresponds to the center square of the originating piece, the second
-            corresponds to the desired location of the originating piece. Moves
-            a piece to a new square.  Returns True if the move was completed.
-            Returns False if the move was unable to be completed. """
-        if self._game_state != 'UNFINISHED':
-            return False
-
-        # Get the active player
-        active_player = self._players[self._active]
-
-        # Make the move if legal; return False otherwise; does not check if destroyed last ring
-        try:
-            moves = self._board.move_piece(active_player, origin_square, target_square)
-        except IllegalMove:
-            # The move was illegal for one of various reasons
-            return False
-
-        # Ensure active player did not destroy their last ring; undo the move and return False otherwise
-        try:
-            self.update_rings()
-        except IllegalMove:
-            # Reverse the move
-            for move in moves:
-                self._board.place_piece(move)
-            return False
-
-        self.check_win_condition()
-        self.switch_turn()
-
-        # self._board.print_board()
-
-        return True
 
     def update_rings(self):
         """ Has no parameters. Requests all rings from the Board object and updates
@@ -97,6 +95,8 @@ class GessGame:
         """ Has no parameters. Switches the active player to facilitate taking
             turns. Returns nothing. """
         self._active ^= 1
+
+        self.turn_changed.emit()
 
     def check_win_condition(self):
         """ Has no parameters. Checks if a player is without rings and updates the status of the game. """
