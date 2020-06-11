@@ -13,24 +13,26 @@ class BoardView(QWidget):
         super(BoardView, self).__init__()
 
         # Attach the model and controller
-        self._board_model = model
+        self._game_model = model
+        self._board_model = model.get_board()
         self._board_controller = controller
 
         # Setup the layout
         layout = QGridLayout()
-        layout.setHorizontalSpacing(0)
-        layout.setVerticalSpacing(0)
+        layout.setHorizontalSpacing(2)
+        layout.setVerticalSpacing(2)
 
         # Construct the view hierarchy
-        model_squares = self._board_model.squares
+        model_squares = self._board_model.get_squares()
+        self._board_size = len(model_squares)
+        self._squares = [[SquareView((i, j)) for j in range(self._board_size)] for i in range(self._board_size)]
 
-        for i in range(model_squares):
-            for j in range(model_squares[0]):
-                self._squares[i][j] = SquareView((i, j))
+        for i in range(self._board_size):
+            for j in range(self._board_size):
                 layout.addWidget(self._squares[i][j], i, j)
 
                 # Connect click event to the controller
-                self._squares[i][j].clicked.connect(self._baord_controller.handle_square_click)
+                self._squares[i][j].clicked.connect(self._board_controller.handle_square_click)
 
         self.setLayout(layout)
 
@@ -38,21 +40,21 @@ class BoardView(QWidget):
         self.update_squares()
 
         # Set up connection to model updates.
-        self._board_model.piece_moved.connect(self.update_squares)
+        self._game_model.board_updated.connect(self.update_squares)
         self._board_model.piece_selected.connect(self.update_selection)
+        self._board_model.piece_deselected.connect(self.clear_selection)
 
-    @property
-    def squares(self):
+    def get_squares(self):
         """ Returns the squares"""
         return self._squares
 
     def update_squares(self):
         """ Updates the contents of the squares initially and
             when the model updates. """
-        model_squares = self._board_model.squares
+        model_squares = self._board_model.get_squares()
 
-        for i in range(model_squares):
-            for j in range(model_squares[0]):
+        for i in range(self._board_size):
+            for j in range(self._board_size):
                 square_view = self._squares[i][j]
                 stone = model_squares[i][j]
 
@@ -71,7 +73,7 @@ class BoardView(QWidget):
         """ Updates the appearance of squares when a piece has been selected.
             Piece is a dictionary in the form {(row, col): stone} """
         for square, stone in zip(piece.keys(), piece.values()):
-            self._squares[square[0], square[1]].highlight_as_peripheral()
+            self._squares[square[0]][square[1]].highlight_as_peripheral()
 
     def clear_selection(self):
         """ Changes the color of all squares back to the default color. """
