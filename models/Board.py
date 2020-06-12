@@ -28,8 +28,8 @@ class Board(QObject):
 
         # TODO: Move this to and load from a data file
         # The layouts for rows by color
-        black_rows = {1: row_type_1, 2: row_type_2, 3: row_type_1, 6: row_type_3}
-        white_rows = {13: row_type_3, 16: row_type_1, 17: row_type_2, 18: row_type_1}
+        white_rows = {1: row_type_1, 2: row_type_2, 3: row_type_1, 6: row_type_3}
+        black_rows = {13: row_type_3, 16: row_type_1, 17: row_type_2, 18: row_type_1}
 
         # TODO: Move this to and load from a data file
         # Initial placement of stones on the board
