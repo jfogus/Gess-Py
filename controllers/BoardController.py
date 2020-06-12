@@ -25,7 +25,14 @@ class BoardController(QObject):
         """ Validates a piece selection or move
             updates the Board. """
         source = self._board.get_selected()
-        target = self.get_piece(coords)
+
+        try:
+            target = self.get_piece(coords)
+        except IndexError:
+            # Catch gutter selections
+            # noinspection PyUnresolvedReferences
+            self.status_update.emit("Cannot select from the gutter")
+            return
 
         if self._model.get_game_state() != 'UNFINISHED':
             # The game is over; no more clicks handled; status message updated by game
@@ -34,6 +41,10 @@ class BoardController(QObject):
         # If no piece is selected, select the piece
         if source is None:
             if not self.is_piece_empty(target):
+                if not self.is_player_piece(self._model.get_active_player(), target):
+                    # noinspection PyUnresolvedReferences
+                    self.status_update.emit("This piece is not the active player's.")
+                    return
                 self._board.set_selected(target)
                 # Clear the status message
                 # noinspection PyUnresolvedReferences
@@ -53,12 +64,16 @@ class BoardController(QObject):
             self.move_legal.emit(source, target)
 
         # Illegal move; nothing to do
-        return
 
     def get_piece(self, center):
         """ Takes a center coordinate as a tuple in the form (row, col) and
             returns a dictionary of the piece's squares in the form
             {(row, col): stone}. """
+        # Prevent index wraparound due to gutter selection
+        board_size = len(self._board.get_squares()) - 1
+        if center[0] in {0, board_size} or center[1] in {0, board_size}:
+            raise IndexError
+
         piece = {}
         sw_corner = center[0] - 1, center[1] - 1
 
@@ -76,11 +91,7 @@ class BoardController(QObject):
             if the move is legal. """
         delta = self.get_delta(source, target)
 
-        if self.in_gutter(source) or self.in_gutter(target):
-            # noinspection PyUnresolvedReferences
-            self.status_update.emit("Cannot select a piece in the gutter.")
-            return False
-
+        # TODO: Move this so that a selection of another player's piece isn't even possible
         if not self.is_player_piece(self._model.get_active_player(), source):
             # noinspection PyUnresolvedReferences
             self.status_update.emit("This piece is not the active player's.")
