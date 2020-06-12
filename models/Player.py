@@ -16,10 +16,10 @@ class Player:
 
         # Sets the initial rings and color for each player
         if stone == "b":
-            self._rings.append((2, 11))
+            self._rings.append((17, 11))
             self._color = "BLACK"
         elif stone == "w":
-            self._rings.append((17, 11))
+            self._rings.append((2, 11))
             self._color = "WHITE"
 
     # TODO: Add stone tracking to the player.
