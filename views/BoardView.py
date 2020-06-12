@@ -3,7 +3,9 @@
 # Description:  The view for a Gess Game Board.
 
 
-from PySide2.QtWidgets import QGridLayout, QWidget
+from PySide2.QtWidgets import QGridLayout, QWidget, QLabel
+from PySide2.QtCore import Qt
+from PySide2.QtGui import QFont
 from views.SquareView import SquareView
 
 
@@ -28,11 +30,20 @@ class BoardView(QWidget):
         self._squares = [[SquareView((i, j)) for j in range(self._board_size)] for i in range(self._board_size)]
 
         for i in range(self._board_size):
+            # Row numbers decreasing
+            row_label = self.create_label(str(self._board_size - i))
+            layout.addWidget(row_label, i, 0)
+
             for j in range(self._board_size):
-                layout.addWidget(self._squares[i][j], i, j)
+                layout.addWidget(self._squares[i][j], i, j + 1)
 
                 # Connect click event to the controller
                 self._squares[i][j].clicked.connect(self._board_controller.handle_square_click)
+
+        for i in range(20):
+            # ASCII code for 'a' + an offset
+            col_label = self.create_label(chr(i + 97))
+            layout.addWidget(col_label, self._board_size, i + 1)
 
         self.setLayout(layout)
 
@@ -48,6 +59,16 @@ class BoardView(QWidget):
         """ Returns the squares"""
         return self._squares
 
+    @staticmethod
+    def create_label(text):
+        """ Returns a QLabel with the passed string. """
+        label = QLabel()
+        label.setText(text)
+        label.setAlignment(Qt.AlignCenter)
+        label.setFont(QFont("Arial", 12))
+
+        return label
+
     def update_squares(self):
         """ Updates the contents of the squares initially and
             when the model updates. """
@@ -56,6 +77,7 @@ class BoardView(QWidget):
         for i in range(self._board_size):
             for j in range(self._board_size):
                 square_view = self._squares[i][j]
+                # Flips the board so black is at the bottom
                 stone = model_squares[i][j]
 
                 # Place the piece in squares
