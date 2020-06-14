@@ -8,6 +8,7 @@ from PySide2.QtWidgets import QMainWindow
 from PySide2.QtCore import Qt
 from views.BoardView import BoardView
 from views.StatusView import StatusView
+from views.HistoryView import HistoryView
 
 
 class GameView(QMainWindow):
@@ -18,3 +19,4 @@ class GameView(QMainWindow):
         self.setWindowTitle("Gess!")
         self.setCentralWidget(BoardView(model, controller))
         self.addDockWidget(Qt.TopDockWidgetArea, StatusView(model))
+        self.addDockWidget(Qt.RightDockWidgetArea, HistoryView(model))
