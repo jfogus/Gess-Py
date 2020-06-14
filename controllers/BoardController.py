@@ -10,7 +10,6 @@ class BoardController(QObject):
     """ Receives the users input from the Board view, validates,
         and sends requests to the model. """
     move_legal = Signal(dict, dict)
-    status_update = Signal(str)
 
     def __init__(self, model):
         super(BoardController, self).__init__()
@@ -31,7 +30,7 @@ class BoardController(QObject):
         except IndexError:
             # Catch gutter selections
             # noinspection PyUnresolvedReferences
-            self.status_update.emit("Cannot select from the gutter")
+            self._model.set_status_message("Cannot select from the gutter")
             return
 
         if self._model.get_game_state() != 'UNFINISHED':
@@ -43,15 +42,15 @@ class BoardController(QObject):
             if not self.is_piece_empty(target):
                 if not self.is_player_piece(self._model.get_active_player(), target):
                     # noinspection PyUnresolvedReferences
-                    self.status_update.emit("This piece is not the active player's.")
+                    self._model.set_status_message("This piece is not the active player's.")
                     return
                 self._board.set_selected(target)
                 # Clear the status message
                 # noinspection PyUnresolvedReferences
-                self.status_update.emit("")
+                self._model.set_status_message("")
             else:
                 # noinspection PyUnresolvedReferences
-                self.status_update.emit("This piece has no stones.")
+                self._model.set_status_message("This piece has no stones.")
                 pass
 
         # If selected and coords is the selected square, deselect the piece
@@ -88,27 +87,24 @@ class BoardController(QObject):
 
     def is_legal_move(self, source, target):
         """ Checks the various rules of the Gess game to determine
-            if the move is legal. """
+            if the move is legal. Does not check for illegal break of own ring. """
         delta = self.get_delta(source, target)
+        active_player = self._model.get_active_player()
 
-        # TODO: Move this so that a selection of another player's piece isn't even possible
-        if not self.is_player_piece(self._model.get_active_player(), source):
+        if not self.is_player_piece(active_player, source):
             # noinspection PyUnresolvedReferences
-            self.status_update.emit("This piece is not the active player's.")
+            self._model.set_status_message("This piece is not the active player's.")
             return False
 
         if not self.is_legal_direction(source, delta):
             # noinspection PyUnresolvedReferences
-            self.status_update.emit("This is not a legal direction.")
+            self._model.set_status_message("This is not a legal direction.")
             return False
 
         if not self.is_legal_distance(source, delta):
             # noinspection PyUnresolvedReferences
-            self.status_update.emit("This is not a legal distance.")
+            self._model.set_status_message("This is not a legal distance.")
             return False
-
-        # TODO: Check if last ring is broken by the move; previously made the move
-        #       check the rings, then reversed the move if necessary
 
         return True
 
