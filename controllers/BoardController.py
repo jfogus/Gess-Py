@@ -25,16 +25,16 @@ class BoardController(QObject):
             updates the Board. """
         source = self._board.get_selected()
 
+        if self._game.get_game_state() != 'UNFINISHED':
+            # The game is over; no more clicks handled; status message updated by game
+            return
+
         try:
             target = self.get_piece(coords)
         except IndexError:
             # Catch gutter selections
             # noinspection PyUnresolvedReferences
             self._game.set_status_message("Cannot select from the gutter")
-            return
-
-        if self._game.get_game_state() != 'UNFINISHED':
-            # The game is over; no more clicks handled; status message updated by game
             return
 
         # If no piece is selected, select the piece
@@ -48,21 +48,23 @@ class BoardController(QObject):
                 # Clear the status message
                 # noinspection PyUnresolvedReferences
                 self._game.set_status_message("")
+                return
             else:
                 # noinspection PyUnresolvedReferences
                 self._game.set_status_message("This piece has no stones.")
-                pass
+                return
 
         # If selected and coords is the selected square, deselect the piece
-        elif source == target:
+        if source == target:
             self._board.set_selected(None)
+            return
 
         # Move the piece and update the game
-        elif not self.is_legal_move(source, target):
+        if not self.is_legal_move(source, target):
             return
 
         # Legal move
-        self._game.make_move()
+        self._game.make_move(source, target)
 
     def get_piece(self, center):
         """ Takes a center coordinate as a tuple in the form (row, col) and
