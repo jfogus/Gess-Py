@@ -14,11 +14,11 @@ class BoardController(QObject):
     def __init__(self, model):
         super(BoardController, self).__init__()
 
-        self._model = model
+        self._game = model
         self._board = model.get_board()
 
         # noinspection PyUnresolvedReferences
-        self.move_legal.connect(self._model.make_move)
+        self.move_legal.connect(self._game.make_move)
 
     def handle_square_click(self, coords):
         """ Validates a piece selection or move
@@ -30,27 +30,27 @@ class BoardController(QObject):
         except IndexError:
             # Catch gutter selections
             # noinspection PyUnresolvedReferences
-            self._model.set_status_message("Cannot select from the gutter")
+            self._game.set_status_message("Cannot select from the gutter")
             return
 
-        if self._model.get_game_state() != 'UNFINISHED':
+        if self._game.get_game_state() != 'UNFINISHED':
             # The game is over; no more clicks handled; status message updated by game
             return
 
         # If no piece is selected, select the piece
         if source is None:
             if not self.is_piece_empty(target):
-                if not self.is_player_piece(self._model.get_active_player(), target):
+                if not self.is_player_piece(self._game.get_active_player(), target):
                     # noinspection PyUnresolvedReferences
-                    self._model.set_status_message("This piece is not the active player's.")
+                    self._game.set_status_message("This piece is not the active player's.")
                     return
                 self._board.set_selected(target)
                 # Clear the status message
                 # noinspection PyUnresolvedReferences
-                self._model.set_status_message("")
+                self._game.set_status_message("")
             else:
                 # noinspection PyUnresolvedReferences
-                self._model.set_status_message("This piece has no stones.")
+                self._game.set_status_message("This piece has no stones.")
                 pass
 
         # If selected and coords is the selected square, deselect the piece
@@ -62,7 +62,7 @@ class BoardController(QObject):
             return
 
         # Legal move
-        self._model.make_move()
+        self._game.make_move()
 
     def get_piece(self, center):
         """ Takes a center coordinate as a tuple in the form (row, col) and
@@ -89,21 +89,21 @@ class BoardController(QObject):
         """ Checks the various rules of the Gess game to determine
             if the move is legal. Does not check for illegal break of own ring. """
         delta = self.get_delta(source, target)
-        active_player = self._model.get_active_player()
+        active_player = self._game.get_active_player()
 
         if not self.is_player_piece(active_player, source):
             # noinspection PyUnresolvedReferences
-            self._model.set_status_message("This piece is not the active player's.")
+            self._game.set_status_message("This piece is not the active player's.")
             return False
 
         if not self.is_legal_direction(source, delta):
             # noinspection PyUnresolvedReferences
-            self._model.set_status_message("This is not a legal direction.")
+            self._game.set_status_message("This is not a legal direction.")
             return False
 
         if not self.is_legal_distance(source, delta):
             # noinspection PyUnresolvedReferences
-            self._model.set_status_message("This is not a legal distance.")
+            self._game.set_status_message("This is not a legal distance.")
             return False
 
         return True
