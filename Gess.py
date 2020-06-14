@@ -5,7 +5,9 @@
 
 import sys
 from models.Game import Game
+from models.History import History
 from controllers.BoardController import BoardController
+from controllers.HistoryController import HistoryController
 from views.GameView import GameView
 from PySide2.QtWidgets import QApplication
 
@@ -16,14 +18,19 @@ class Gess(QApplication):
         super(Gess, self).__init__(sys_argv)
 
         # Models
-        self.game_model = Game()
+        self._game_model = Game()
+        self._history_model = History()
 
         # Controllers
-        self.board_controller = BoardController(self.game_model)
+        self._board_controller = BoardController(self._game_model)
+        self._history_controller = HistoryController(self._game_model)
 
         # Views
-        self.game_view = GameView(self.game_model, self.board_controller)
-        self.game_view.show()
+        self._game_view = GameView(self._game_model,
+                                  self._board_controller,
+                                  self._history_model,
+                                  self._history_controller)
+        self._game_view.show()
 
 
 if __name__ == "__main__":
