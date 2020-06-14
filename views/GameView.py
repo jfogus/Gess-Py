@@ -17,4 +17,4 @@ class GameView(QMainWindow):
 
         self.setWindowTitle("Gess!")
         self.setCentralWidget(BoardView(model, controller))
-        self.addDockWidget(Qt.TopDockWidgetArea, StatusView(model, controller))
+        self.addDockWidget(Qt.TopDockWidgetArea, StatusView(model))
