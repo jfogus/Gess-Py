@@ -10,11 +10,10 @@ from PySide2.QtGui import QFont
 
 
 class StatusView(QDockWidget):
-    def __init__(self, model, controller):
+    def __init__(self, model):
         super(StatusView, self).__init__()
 
         self._model = model
-        self._controller = controller
         self._text = self._model.get_game_state()
 
         # Place the bar, and remove title bar and features
