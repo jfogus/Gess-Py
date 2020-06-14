@@ -34,14 +34,20 @@ class StatusView(QDockWidget):
     def update_message(self):
         """ Updates the text of the label with a message. """
         # Add a separator as necessary
-        msg = self._game.get_status_message()
-        if msg != "":
-            msg = "; " + msg
+        turn_msg = self.get_turn_msg()
+        status_msg = self._game.get_status_message()
 
-        self._status.setText(self.get_turn_msg() + msg)
+        # Add conditional punctuation
+        if turn_msg != "" and status_msg != "":
+            turn_msg += "; "
+
+        self._status.setText(turn_msg + status_msg)
 
     def get_turn_msg(self):
         """ Creates a message indicating the player's turn. """
-        message = "{}'s turn".format(self._game.get_active_player().get_color().title())
+        if self._game.get_game_state() == "UNFINISHED":
+            message = "{}'s turn".format(self._game.get_active_player().get_color().title())
+        else:
+            message = ""
 
         return message
