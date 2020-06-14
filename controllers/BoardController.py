@@ -58,11 +58,11 @@ class BoardController(QObject):
             self._board.set_selected(None)
 
         # Move the piece and update the game
-        elif self.is_legal_move(source, target):
-            # noinspection PyUnresolvedReferences
-            self.move_legal.emit(source, target)
+        elif not self.is_legal_move(source, target):
+            return
 
-        # Illegal move; nothing to do
+        # Legal move
+        self._model.make_move()
 
     def get_piece(self, center):
         """ Takes a center coordinate as a tuple in the form (row, col) and
