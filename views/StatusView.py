@@ -32,11 +32,12 @@ class StatusView(QDockWidget):
         self.update_turn()
 
         self._model.turn_changed.connect(self.update_turn)
-        self._controller.status_update.connect(self.update_message)
+        self._model.status_update.connect(self.update_message)
 
-    def update_message(self, msg):
+    def update_message(self):
         """ Updates the text of the label with a message. """
         # Add a separator as necessary
+        msg = self._model.get_status_message()
         if msg != "":
             msg = "; " + msg
 
