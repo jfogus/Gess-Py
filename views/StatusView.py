@@ -13,7 +13,7 @@ class StatusView(QDockWidget):
     def __init__(self, model):
         super(StatusView, self).__init__()
 
-        self._model = model
+        self._game = model
 
         # Place the bar, and remove title bar and features
         self.setAllowedAreas(Qt.TopDockWidgetArea)
@@ -29,12 +29,12 @@ class StatusView(QDockWidget):
 
         self.update_message()
 
-        self._model.status_updated.connect(self.update_message)
+        self._game.status_updated.connect(self.update_message)
 
     def update_message(self):
         """ Updates the text of the label with a message. """
         # Add a separator as necessary
-        msg = self._model.get_status_message()
+        msg = self._game.get_status_message()
         if msg != "":
             msg = "; " + msg
 
@@ -42,6 +42,6 @@ class StatusView(QDockWidget):
 
     def get_turn_msg(self):
         """ Creates a message indicating the player's turn. """
-        message = "{}'s turn".format(self._model.get_active_player().get_color().title())
+        message = "{}'s turn".format(self._game.get_active_player().get_color().title())
 
         return message
