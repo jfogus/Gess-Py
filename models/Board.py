@@ -6,6 +6,7 @@
 
 from PySide2.QtCore import Signal
 from PySide2.QtCore import QObject
+from models.IllegalMove import IllegalMove
 
 
 class Board(QObject):
