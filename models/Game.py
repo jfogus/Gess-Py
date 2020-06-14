@@ -4,9 +4,9 @@
 #               including making a move, changing turns, resigning, and tracking game state.
 
 
-# TODO: Connect to controller signal
 from models.Board import Board
 from models.Player import Player
+from models.IllegalMove import IllegalMove
 from PySide2.QtCore import Signal, QObject
 
 
@@ -15,8 +15,8 @@ class Game(QObject):
         maintains players and updates them.  Allows for making a move and resigning.
         Will have a Board object for communicating player input to the Board.  Will have
         2 Player objects for updating and checking their list of rings. Has no parameters. """
-    turn_changed = Signal()
     board_updated = Signal()
+    status_updated = Signal()
 
     def __init__(self):
         super(Game, self).__init__()
@@ -27,9 +27,6 @@ class Game(QObject):
         self._players = (Player('b'), Player('w'))
         self._active = 0
 
-    # TODO: Update the players stones when making a move.
-    # TODO: Check the players stones when checking for rings.
-    # TODO: Refactor ring check
     def get_board(self):
         """ Returns the 20x20 board. """
         return self._board
@@ -41,6 +38,8 @@ class Game(QObject):
     def set_status_message(self, msg):
         """ Sets the status message with a new string. """
         self._status_message = msg
+        # noinspection PyUnresolvedReferences
+        self.status_updated.emit()
 
     def get_game_state(self):
         """ Has no parameters. Returns the state of the game. For tracking if the
@@ -55,13 +54,23 @@ class Game(QObject):
     def make_move(self, source, target):
         """ Moves the piece and updates the state of the game. """
         self._board.move_piece(source, target)
-        self._board.set_selected(None)
 
         # Remove gutter stones
         self._board.clear_gutter()
-        self.update_rings()
+
+        # If the move breaks the player's final ring, undo the move
+        try:
+            self.update_rings()
+        except IllegalMove:
+            self._status_message = "Unable to break last ring"
+            # noinspection PyUnresolvedReferences
+            self.status_updated.emit()
+            for piece in (source, target):
+                self._board.place_piece(piece)
+            return
+
+        self._board.set_selected(None)
         self.check_win_condition()
-        # TODO: Update the StatusView if the win condition is changed
         self.switch_turn()
 
         # Signals the board is updated
@@ -96,7 +105,8 @@ class Game(QObject):
             turns. Returns nothing. """
         self._active ^= 1
 
-        self.turn_changed.emit()
+        # noinspection PyUnresolvedReferences
+        self.status_updated.emit()
 
     def check_win_condition(self):
         """ Has no parameters. Checks if a player is without rings and updates the status of the game. """
@@ -106,3 +116,8 @@ class Game(QObject):
                 # Get the color of the opposite player and create the state message
                 state = self._players[i ^ 1].get_color() + "_WON"
                 self._game_state = state
+
+                # Update the status message
+                self._status_message = self._game_state.title().replace("_", " ")
+                # noinspection PyUnresolvedReferences
+                self.status_updated.emit()
