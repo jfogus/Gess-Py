@@ -15,9 +15,9 @@ class BoardView(QWidget):
         super(BoardView, self).__init__()
 
         # Attach the model and controller
-        self._game_model = model
-        self._board_model = model.get_board()
-        self._board_controller = controller
+        self._game = model
+        self._board = model.get_board()
+        self._controller = controller
 
         # Setup the layout
         layout = QGridLayout()
@@ -25,7 +25,7 @@ class BoardView(QWidget):
         layout.setVerticalSpacing(2)
 
         # Construct the view hierarchy
-        model_squares = self._board_model.get_squares()
+        model_squares = self._board.get_squares()
         self._board_size = len(model_squares)
         self._squares = [[SquareView((i, j)) for j in range(self._board_size)] for i in range(self._board_size)]
 
@@ -38,7 +38,7 @@ class BoardView(QWidget):
                 layout.addWidget(self._squares[i][j], i, j + 1)
 
                 # Connect click event to the controller
-                self._squares[i][j].clicked.connect(self._board_controller.handle_square_click)
+                self._squares[i][j].clicked.connect(self._controller.handle_square_click)
 
         for i in range(20):
             # ASCII code for 'a' + an offset
@@ -51,9 +51,9 @@ class BoardView(QWidget):
         self.update_squares()
 
         # Set up connection to model updates.
-        self._game_model.board_updated.connect(self.update_squares)
-        self._board_model.piece_selected.connect(self.update_selection)
-        self._board_model.piece_deselected.connect(self.clear_selection)
+        self._game.board_updated.connect(self.update_squares)
+        self._board.piece_selected.connect(self.update_selection)
+        self._board.piece_deselected.connect(self.clear_selection)
 
     def get_squares(self):
         """ Returns the squares"""
@@ -72,7 +72,7 @@ class BoardView(QWidget):
     def update_squares(self):
         """ Updates the contents of the squares initially and
             when the model updates. """
-        model_squares = self._board_model.get_squares()
+        model_squares = self._board.get_squares()
 
         for i in range(self._board_size):
             for j in range(self._board_size):
