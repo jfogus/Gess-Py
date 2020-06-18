@@ -11,27 +11,28 @@ from views.SquareView import SquareView
 
 class BoardView(QWidget):
     """ Creates a 20x20 grid of SquareViews. """
-    def __init__(self, model, controller):
+    def __init__(self, squares, model, controller):
         super(BoardView, self).__init__()
 
         # Attach the model and controller
         self._game = model
         self._board = model.get_board()
         self._controller = controller
+        self._squares = squares
 
         # Setup the layout
         layout = QGridLayout()
         layout.setHorizontalSpacing(2)
         layout.setVerticalSpacing(2)
 
-        # Construct the view hierarchy
-        model_squares = self._board.get_squares()
-        self._board_size = len(model_squares)
-        self._squares = [[SquareView((i, j)) for j in range(self._board_size)] for i in range(self._board_size)]
+        # Add squares to the layout
+        self._board_size = len(self._squares)
 
         for i in range(self._board_size):
-            # Row numbers decreasing
+            # Row labels; row numbers decreasing
             row_label = self.create_label(str(self._board_size - i))
+            row_label.setAlignment(Qt.AlignRight)
+            row_label.setContentsMargins(10, 0, 5, 0)
             layout.addWidget(row_label, i, 0)
 
             for j in range(self._board_size):
@@ -40,9 +41,12 @@ class BoardView(QWidget):
                 # Connect click event to the controller
                 self._squares[i][j].clicked.connect(self._controller.handle_square_click)
 
+        # Column labels
         for i in range(20):
             # ASCII code for 'a' + an offset
             col_label = self.create_label(chr(i + 97))
+            col_label.setContentsMargins(0, 0, 0, 10)
+            col_label.setAlignment(Qt.AlignHCenter)
             layout.addWidget(col_label, self._board_size, i + 1)
 
         self.setLayout(layout)
