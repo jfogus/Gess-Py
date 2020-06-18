@@ -4,8 +4,6 @@
 #               including making a move, changing turns, resigning, and tracking game state.
 
 
-from models.Board import Board
-from models.Player import Player
 from models.IllegalMove import IllegalMove
 from PySide2.QtCore import Signal, QObject
 
@@ -15,16 +13,17 @@ class Game(QObject):
         maintains players and updates them.  Allows for making a move and resigning.
         Will have a Board object for communicating player input to the Board.  Will have
         2 Player objects for updating and checking their list of rings. Has no parameters. """
-    board_updated = Signal()
+    # Passes along an origin and destination piece
+    board_updated = Signal(dict, dict)
     status_updated = Signal()
 
-    def __init__(self):
+    def __init__(self, players, board):
         super(Game, self).__init__()
 
-        self._board = Board()
+        self._board = board
         self._status_message = ""
         self._game_state = 'UNFINISHED'
-        self._players = (Player('b'), Player('w'))
+        self._players = players
         self._active = 0
 
     def get_board(self):
@@ -75,7 +74,7 @@ class Game(QObject):
 
         # Signals the board is updated
         # noinspection PyUnresolvedReferences
-        self.board_updated.emit()
+        self.board_updated.emit(source, target)
 
     def resign_game(self):
         """ Has no parameters. Allows the active player to quit the game with a
