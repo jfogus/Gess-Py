@@ -10,9 +10,9 @@ If you would like to know more about the game of Gess, please find the instructi
 [chessvariants.com](https://www.chessvariants.com/crossover.dir/gess.html).
 
 **Roadmap:**
-* Get the game working
-* Add a notification area for tracking turn and sending error messages
-* Add a notation sidebar for seeing a history of the game
+* ~~Get the game working~~
+* ~~Add a notification area for tracking turn and sending error messages~~
+* ~~Add a notation sidebar for seeing a history of the game~~
 * Add a save button to keep the move history for posterity
 * (maybe) Add an upload button to upload the game to a site.
 * (maybe) Online matchmaker
@@ -23,5 +23,6 @@ If you would like to know more about the game of Gess, please find the instructi
 * Mobile version of the game
 
 **Notes:**
-* In part, this is for MVC practice.  I am aware that Qt uses the Model/View pattern, but it didn't seem
-like a complete misuses of the framework to separate the controller from the view.
+* In part, this is for MVC practice.  I am aware that Qt uses the Model/View pattern, combining
+the view and controller, but it didn't seem like a complete misuses of the framework to separate 
+the controller from the view.
