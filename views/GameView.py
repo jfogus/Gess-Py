@@ -12,11 +12,11 @@ from views.HistoryView import HistoryView
 
 
 class GameView(QMainWindow):
-    """ Represents the main window of a Gess game. """
-    def __init__(self, model, controller, right_model, right_controller):
+    """ Composite view representing the main window of a Gess game. """
+    def __init__(self, board_view, status_view, history_view):
         super(GameView, self).__init__()
 
         self.setWindowTitle("Gess!")
-        self.setCentralWidget(BoardView(model, controller))
-        self.addDockWidget(Qt.TopDockWidgetArea, StatusView(model))
-        self.addDockWidget(Qt.RightDockWidgetArea, HistoryView(right_model, right_controller))
+        self.setCentralWidget(board_view)
+        self.addDockWidget(Qt.TopDockWidgetArea, status_view)
+        self.addDockWidget(Qt.RightDockWidgetArea, history_view)
