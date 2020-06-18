@@ -4,9 +4,7 @@
 #               testing and executing moves.
 
 
-from PySide2.QtCore import Signal
-from PySide2.QtCore import QObject
-from models.IllegalMove import IllegalMove
+from PySide2.QtCore import QObject, Signal
 
 
 class Board(QObject):
