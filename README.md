@@ -14,6 +14,7 @@ If you would like to know more about the game of Gess, please find the instructi
 * ~~Add a notification area for tracking turn and sending error messages.~~
 * ~~Add a notation sidebar for seeing a history of the game.~~
 * Add pagination to the history sidebar on overflow
+* Add indicator of number of stones lost in the status bar
 * Add a save button to keep the move history for posterity.
 * Add a mode for reviewing/stepping through a complete or saved game.
 * (maybe) Add an upload button to upload the game to a site.
