@@ -46,7 +46,7 @@ class StatusView(QDockWidget):
     def get_turn_msg(self):
         """ Creates a message indicating the player's turn. """
         if self._game.get_game_state() == "UNFINISHED":
-            message = "{}'s turn".format(self._game.get_active_player().get_color().title())
+            message = "{}'s Turn".format(self._game.get_active_player().get_color().title())
         else:
             message = ""
 
